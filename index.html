@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>小確幸金庫</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --pink:#D4537E;
+    --pink-soft:#FBEAF0;
+    --ink:#3a3236;
+    --muted:#9a8e93;
+    --line:#f0e3e8;
+    --bg:#fffafc;
+    --card:#ffffff;
+    --red:#E0506E;
+    --green:#52a84a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    font-family:'Noto Sans TC',sans-serif;
+    background:var(--bg);
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+    line-height:1.5;
+  }
+  button{font-family:inherit;cursor:pointer;}
+  input,select{font-family:inherit;}
+  svg{display:block;}
+
+  /* ---------- 密碼鎖畫面 ---------- */
+  #lock{
+    position:fixed;inset:0;z-index:100;
+    background:#ffffff;
+    display:flex;align-items:center;justify-content:center;
+    padding:24px;
+  }
+  .lock-card{
+    width:100%;max-width:360px;text-align:center;
+  }
+  .lock-env{
+    width:96px;height:96px;margin:0 auto 22px;
+    color:var(--pink);
+  }
+  .lock-card h1{
+    font-size:26px;font-weight:900;color:var(--pink);
+    letter-spacing:1px;margin-bottom:26px;
+  }
+  .lock-field{
+    display:flex;flex-direction:column;gap:12px;
+  }
+  .lock-field input{
+    border:1.5px solid var(--line);
+    background:var(--pink-soft);
+    border-radius:16px;
+    padding:14px 18px;
+    font-size:17px;
+    text-align:center;
+    color:var(--ink);
+    outline:none;
+    transition:border-color .2s;
+  }
+  .lock-field input:focus{border-color:var(--pink);}
+  .lock-field button{
+    border:none;
+    background:var(--pink);
+    color:#fff;
+    border-radius:16px;
+    padding:14px;
+    font-size:17px;
+    font-weight:700;
+    transition:transform .1s,filter .2s;
+  }
+  .lock-field button:active{transform:scale(.97);}
+  .lock-field button:hover{filter:brightness(1.05);}
+  .lock-hint{
+    margin-top:16px;color:var(--muted);font-size:13px;
+  }
+  .lock-err{
+    margin-top:14px;color:var(--red);font-size:14px;font-weight:500;
+    min-height:20px;
+    opacity:0;transition:opacity .2s;
+  }
+  .lock-err.show{opacity:1;}
+
+  /* ---------- App ---------- */
+  #app{display:none;max-width:520px;margin:0 auto;padding:0 0 40px;min-height:100vh;}
+  .app-header{
+    padding:24px 20px 14px;text-align:center;
+  }
+  .app-header h1{
+    font-size:21px;font-weight:900;color:var(--pink);letter-spacing:.5px;
+  }
+  .app-header .sub{
+    font-size:13px;color:var(--muted);margin-top:6px;
+  }
+  .badge-role{
+    display:inline-flex;align-items:center;gap:6px;
+    margin-top:12px;
+    background:var(--pink-soft);
+    color:var(--pink);
+    font-size:12.5px;font-weight:700;
+    padding:6px 14px;border-radius:999px;
+  }
+
+  /* 頂部三格數字卡 */
+  .top-stats{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:10px;
+    padding:6px 16px 18px;
+  }
+  .stat-cell{
+    background:var(--card);
+    border:1.5px solid var(--line);
+    border-radius:18px;
+    padding:14px 8px;
+    text-align:center;
+  }
+  .stat-cell .lab{font-size:11.5px;color:var(--muted);margin-bottom:6px;}
+  .stat-cell .val{font-size:18px;font-weight:900;letter-spacing:.3px;}
+  .stat-cell.spon .val{color:var(--green);}
+  .stat-cell.used .val{color:var(--red);}
+  .stat-cell.bal .val{color:var(--pink);}
+
+  /* 分頁 nav */
+  .tabs{
+    display:flex;gap:6px;
+    background:var(--pink-soft);
+    margin:0 16px;
+    padding:5px;border-radius:16px;
+  }
+  .tabs button{
+    flex:1;border:none;background:transparent;
+    padding:10px 0;border-radius:12px;
+    font-size:14.5px;font-weight:700;color:var(--pink);
+    transition:background .2s,color .2s;
+  }
+  .tabs button.active{background:#fff;color:var(--pink);box-shadow:0 2px 8px rgba(212,83,126,.12);}
+
+  .panel{padding:18px 16px 0;display:none;}
+  .panel.active{display:block;}
+
+  /* ---------- 篩選列 ---------- */
+  .filters{
+    display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;margin-bottom:6px;
+    -webkit-overflow-scrolling:touch;
+  }
+  .filters::-webkit-scrollbar{display:none;}
+  .filter-chip{
+    flex:0 0 auto;
+    display:inline-flex;align-items:center;gap:5px;
+    border:1.5px solid var(--line);
+    background:#fff;
+    border-radius:999px;
+    padding:7px 13px;
+    font-size:13px;font-weight:500;color:var(--ink);
+    white-space:nowrap;
+    transition:all .15s;
+  }
+  .filter-chip svg{width:16px;height:16px;}
+  .filter-chip.active{border-color:transparent;color:#fff;}
+
+  /* ---------- 紀錄列 ---------- */
+  .rec{
+    display:flex;align-items:center;gap:12px;
+    background:var(--card);
+    border:1.5px solid var(--line);
+    border-radius:18px;
+    padding:13px 14px;
+    margin-bottom:10px;
+  }
+  .rec-icon{
+    width:42px;height:42px;flex:0 0 42px;
+    border-radius:13px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .rec-icon svg{width:23px;height:23px;}
+  .rec-body{flex:1;min-width:0;}
+  .rec-name{font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .rec-meta{font-size:12px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .rec-spon-tag{
+    display:inline-block;
+    background:#EAF3DE;color:#639922;
+    font-size:11px;font-weight:700;
+    padding:2px 8px;border-radius:999px;margin-top:4px;
+  }
+  .rec-amt{font-size:16px;font-weight:900;white-space:nowrap;}
+  .rec-amt.exp{color:var(--red);}
+  .rec-amt.inc{color:var(--green);}
+  .rec-acts{display:flex;gap:4px;margin-left:4px;}
+  .icon-btn{
+    border:none;background:transparent;
+    width:30px;height:30px;border-radius:9px;
+    display:flex;align-items:center;justify-content:center;
+    color:var(--muted);transition:background .15s,color .15s;
+  }
+  .icon-btn:hover{background:var(--pink-soft);color:var(--pink);}
+  .icon-btn svg{width:17px;height:17px;}
+  .empty{text-align:center;color:var(--muted);font-size:14px;padding:40px 0;}
+
+  /* ---------- 表單 ---------- */
+  .seg{
+    display:flex;gap:8px;background:var(--pink-soft);
+    padding:5px;border-radius:14px;margin-bottom:18px;
+  }
+  .seg button{
+    flex:1;border:none;background:transparent;
+    padding:10px;border-radius:10px;
+    font-size:14px;font-weight:700;color:var(--pink);
+    transition:background .2s;
+  }
+  .seg button.active{background:#fff;box-shadow:0 2px 6px rgba(212,83,126,.12);}
+  .field{margin-bottom:15px;}
+  .field label{display:block;font-size:13px;font-weight:700;color:var(--ink);margin-bottom:7px;}
+  .field input,.field select{
+    width:100%;
+    border:1.5px solid var(--line);
+    background:#fff;
+    border-radius:14px;
+    padding:12px 14px;
+    font-size:15px;color:var(--ink);
+    outline:none;transition:border-color .2s;
+  }
+  .field input:focus,.field select:focus{border-color:var(--pink);}
+  .cat-pick{display:flex;flex-wrap:wrap;gap:8px;}
+  .cat-opt{
+    display:inline-flex;align-items:center;gap:6px;
+    border:1.5px solid var(--line);background:#fff;
+    border-radius:999px;padding:8px 13px;
+    font-size:13px;font-weight:500;
+    transition:all .15s;
+  }
+  .cat-opt svg{width:16px;height:16px;}
+  .cat-opt.active{border-color:transparent;color:#fff;}
+  .btn-primary{
+    width:100%;border:none;background:var(--pink);color:#fff;
+    border-radius:16px;padding:15px;font-size:16px;font-weight:700;
+    margin-top:6px;transition:transform .1s,filter .2s;
+  }
+  .btn-primary:active{transform:scale(.98);}
+  .btn-primary:hover{filter:brightness(1.05);}
+
+  /* ---------- 統計 ---------- */
+  .stat-grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:22px;}
+  .big-card{
+    background:var(--card);border:1.5px solid var(--line);border-radius:18px;
+    padding:16px 10px;text-align:center;
+  }
+  .big-card .lab{font-size:11.5px;color:var(--muted);margin-bottom:7px;}
+  .big-card .val{font-size:20px;font-weight:900;}
+  .big-card.g .val{color:var(--green);}
+  .big-card.r .val{color:var(--red);}
+  .big-card.p .val{color:var(--pink);}
+  .sec-title{font-size:14px;font-weight:900;color:var(--ink);margin:6px 0 14px;}
+  .bar-row{margin-bottom:14px;}
+  .bar-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+  .bar-head .nm{display:inline-flex;align-items:center;gap:7px;font-size:13.5px;font-weight:700;}
+  .bar-head .nm svg{width:17px;height:17px;}
+  .bar-head .am{font-size:13px;font-weight:700;color:var(--muted);}
+  .bar-track{height:12px;background:var(--line);border-radius:999px;overflow:hidden;}
+  .bar-fill{height:100%;border-radius:999px;transition:width .5s ease;}
+
+  /* ---------- Modal ---------- */
+  .modal-mask{
+    position:fixed;inset:0;z-index:90;
+    background:rgba(58,50,54,.4);
+    display:none;align-items:flex-end;justify-content:center;
+    padding:0;
+  }
+  .modal-mask.show{display:flex;}
+  .modal{
+    width:100%;max-width:520px;
+    background:#fff;
+    border-radius:26px 26px 0 0;
+    padding:22px 18px 28px;
+    max-height:92vh;overflow-y:auto;
+    animation:slideUp .25s ease;
+  }
+  @keyframes slideUp{from{transform:translateY(40px);opacity:.6;}to{transform:translateY(0);opacity:1;}}
+  .modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
+  .modal-head h3{font-size:18px;font-weight:900;color:var(--pink);}
+  .modal-close{
+    border:none;background:var(--pink-soft);color:var(--pink);
+    width:34px;height:34px;border-radius:11px;
+    display:flex;align-items:center;justify-content:center;font-size:18px;
+  }
+  .modal-close svg{width:16px;height:16px;}
+  .modal-actions{display:flex;gap:10px;margin-top:8px;}
+  .modal-actions .btn-primary{margin-top:0;}
+  @media(min-width:540px){
+    .modal-mask{align-items:center;}
+    .modal{border-radius:26px;margin:0 16px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ 密碼鎖 ============ -->
+<div id="lock">
+  <div class="lock-card">
+    <div class="lock-env" id="envIcon"></div>
+    <h1>小金庫密碼</h1>
+    <div class="lock-field">
+      <input type="password" id="pwInput" placeholder="請輸入密碼" autocomplete="off">
+      <button id="pwBtn">確認</button>
+    </div>
+    <div class="lock-err" id="pwErr"></div>
+    <div class="lock-hint">提示：設計＋PM 哪個星座人數最多？</div>
+  </div>
+</div>
+
+<!-- ============ App ============ -->
+<div id="app">
+  <div class="app-header">
+    <h1>產品＋設計 小確幸金庫</h1>
+    <div class="sub">零食、飲料、下午茶、慶生，通通在這裡</div>
+    <div class="badge-role"><span id="badgeIcon"></span>康樂股長兼零食櫃姐：粉圓冰</div>
+  </div>
+
+  <div class="top-stats">
+    <div class="stat-cell spon"><div class="lab">金主贊助總額</div><div class="val" id="topSpon">$0</div></div>
+    <div class="stat-cell used"><div class="lab">已花用</div><div class="val" id="topUsed">$0</div></div>
+    <div class="stat-cell bal"><div class="lab">金庫結餘</div><div class="val" id="topBal">$0</div></div>
+  </div>
+
+  <div class="tabs">
+    <button data-tab="list" class="active">明細</button>
+    <button data-tab="add">記一筆</button>
+    <button data-tab="stat">統計</button>
+  </div>
+
+  <!-- 明細 -->
+  <div class="panel active" id="panel-list">
+    <div class="filters" id="filters"></div>
+    <div id="recList"></div>
+  </div>
+
+  <!-- 記一筆 -->
+  <div class="panel" id="panel-add">
+    <div class="seg" id="addSeg">
+      <button data-type="e" class="active">支出</button>
+      <button data-type="i">金主贊助</button>
+    </div>
+    <div class="field" id="addSponWrap" style="display:none;">
+      <label>金主大名</label>
+      <input type="text" id="addSponsor" placeholder="哪位大大贊助？">
+    </div>
+    <div class="field">
+      <label>品項</label>
+      <input type="text" id="addName" placeholder="例如：木木下午茶">
+    </div>
+    <div class="field">
+      <label>金額</label>
+      <input type="number" id="addAmt" inputmode="numeric" placeholder="0">
+    </div>
+    <div class="field" id="addCatWrap">
+      <label>類別</label>
+      <div class="cat-pick" id="addCatPick"></div>
+    </div>
+    <div class="field">
+      <label>日期</label>
+      <input type="date" id="addDate">
+    </div>
+    <div class="field">
+      <label>備註</label>
+      <input type="text" id="addNote" placeholder="選填">
+    </div>
+    <button class="btn-primary" id="addBtn">記下這一筆</button>
+  </div>
+
+  <!-- 統計 -->
+  <div class="panel" id="panel-stat">
+    <div class="stat-grid3">
+      <div class="big-card g"><div class="lab">金主贊助總額</div><div class="val" id="stSpon">$0</div></div>
+      <div class="big-card r"><div class="lab">總支出</div><div class="val" id="stUsed">$0</div></div>
+      <div class="big-card p"><div class="lab">結餘</div><div class="val" id="stBal">$0</div></div>
+    </div>
+    <div class="sec-title">各分類支出</div>
+    <div id="barChart"></div>
+    <div class="sec-title" style="margin-top:24px;">最近五筆紀錄</div>
+    <div id="recentList"></div>
+  </div>
+</div>
+
+<!-- ============ 編輯 Modal ============ -->
+<div class="modal-mask" id="modalMask">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>編輯紀錄</h3>
+      <button class="modal-close" id="modalClose"></button>
+    </div>
+    <div class="seg" id="edSeg">
+      <button data-type="e">支出</button>
+      <button data-type="i">金主贊助</button>
+    </div>
+    <div class="field" id="edSponWrap" style="display:none;">
+      <label>金主大名</label>
+      <input type="text" id="edSponsor" placeholder="哪位大大贊助？">
+    </div>
+    <div class="field">
+      <label>品項</label>
+      <input type="text" id="edName">
+    </div>
+    <div class="field">
+      <label>金額</label>
+      <input type="number" id="edAmt" inputmode="numeric">
+    </div>
+    <div class="field" id="edCatWrap">
+      <label>類別</label>
+      <div class="cat-pick" id="edCatPick"></div>
+    </div>
+    <div class="field">
+      <label>日期</label>
+      <input type="date" id="edDate">
+    </div>
+    <div class="field">
+      <label>備註</label>
+      <input type="text" id="edNote">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-primary" id="edSave">儲存修改</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===================== 手繪 SVG icon ===================== */
+const ICONS = {
+  // 手搖飲：杯子＋吸管＋珍珠
+  drink:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8.5h10l-1 11a1.5 1.5 0 0 1-1.5 1.4H9.5A1.5 1.5 0 0 1 8 19.5z"/><path d="M6.4 8.5h11.2"/><path d="M14.5 8.2 16 3.4"/><circle cx="10.5" cy="15" r="1"/><circle cx="13.5" cy="17" r="1"/><circle cx="11" cy="18.5" r="1"/></svg>',
+  // 零食：餅乾
+  food:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5c4.7 0 8.5 3.8 8.5 8.5a2 2 0 0 1-2.6 1.9 2 2 0 0 0-2.5 2.5A2 2 0 0 1 13.5 21 8.5 8.5 0 1 1 12 3.5z"/><circle cx="9" cy="9.5" r="1"/><circle cx="13.5" cy="8.5" r="1"/><circle cx="8.5" cy="14" r="1"/><circle cx="12" cy="13.5" r="1"/></svg>',
+  // 下午茶：茶杯＋盤
+  meal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h11v4a5.5 5.5 0 0 1-11 0z"/><path d="M16 9h2.2a2 2 0 0 1 0 4H16"/><path d="M4 19.5h13"/><path d="M8 5c0-1 1-1 1-2M11.5 5c0-1 1-1 1-2"/></svg>',
+  // 慶生：蛋糕＋蠟燭
+  birthday:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 20.5h15"/><path d="M5 20.5v-6.5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v6.5"/><path d="M5 16c1.2 0 1.2 1 2.4 1s1.2-1 2.4-1 1.2 1 2.4 1 1.2-1 2.4-1 1.2 1 2.4 1"/><path d="M12 11.5V8"/><circle cx="12" cy="5.5" r="1.1"/></svg>',
+  // 其他：盒子
+  misc:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 7.5 12 4l8.5 3.5L12 11z"/><path d="M3.5 7.5v9L12 20l8.5-3.5v-9"/><path d="M12 11v9"/></svg>',
+  // 金主贊助：錢袋＋$
+  sponsor:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6.5h6l-1-2.5H10z"/><path d="M9 6.5c-2.5 1.8-4 4.6-4 7.7A5.8 5.8 0 0 0 10.8 20h2.4A5.8 5.8 0 0 0 19 14.2c0-3.1-1.5-5.9-4-7.7z"/><path d="M12 10v6"/><path d="M13.8 11.3c-.5-.6-3.3-1-3.3.6 0 1.5 3 1 3 2.5 0 1.5-2.8 1.2-3.4.5"/></svg>',
+  // 全部：星星
+  all:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l2.5 5.3 5.7.7-4.2 4 1.1 5.7L12 21.4 6.9 18.2 8 12.5 3.8 9.5l5.7-.7z"/></svg>',
+  // 信封（密碼頁）
+  envelope:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5.5" width="19" height="14" rx="3"/><path d="M3 7.5l8.2 6a1.5 1.5 0 0 0 1.6 0L21 7.5"/></svg>',
+  // 鉛筆
+  pencil:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 4.5l3 3L8 19l-4 1 1-4z"/><path d="M14.5 6.5l3 3"/></svg>',
+  // 垃圾桶
+  trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 7h15"/><path d="M9 7V5.2A1.2 1.2 0 0 1 10.2 4h3.6A1.2 1.2 0 0 1 15 5.2V7"/><path d="M6.5 7l.8 12a1.5 1.5 0 0 0 1.5 1.4h6.4a1.5 1.5 0 0 0 1.5-1.4L18 7"/><path d="M10 11v6M14 11v6"/></svg>',
+  // 關閉
+  close:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+};
+
+/* ===================== 類別設定 ===================== */
+const CATS = {
+  drink:   {label:'手搖飲', bg:'#FBEAF0', fg:'#D4537E'},
+  food:    {label:'零食',   bg:'#FAEEDA', fg:'#EF9F27'},
+  meal:    {label:'下午茶', bg:'#EEEDFE', fg:'#7F77DD'},
+  birthday:{label:'慶生',   bg:'#E1F5EE', fg:'#1D9E75'},
+  misc:    {label:'其他',   bg:'#F1EFE8', fg:'#888780'},
+  sponsor: {label:'金主贊助',bg:'#EAF3DE', fg:'#639922'},
+};
+// 支出可選類別（記一筆 / 編輯）
+const EXP_CATS = ['drink','food','meal','birthday','misc'];
+// 明細篩選列
+const FILTERS = ['all','drink','food','meal','birthday','sponsor'];
+
+/* ===================== 資料 ===================== */
+const KEY = 'cheer_fund3';
+const SEED = [
+  {"id":20250113001,"name":"零食補貨","amt":447,"cat":"food","date":"2025-01-13","note":"","type":"e","sponsor":""},
+  {"id":20250113002,"name":"飲料","amt":245,"cat":"drink","date":"2025-01-13","note":"","type":"e","sponsor":""},
+  {"id":20250113003,"name":"a0b 零食","amt":406,"cat":"food","date":"2025-01-13","note":"","type":"e","sponsor":""},
+  {"id":20250203001,"name":"木木烤鴨堡下午茶","amt":1400,"cat":"meal","date":"2025-02-03","note":"","type":"e","sponsor":""},
+  {"id":20250203002,"name":"雜支","amt":300,"cat":"misc","date":"2025-02-03","note":"","type":"e","sponsor":""},
+  {"id":20250212001,"name":"金主贊助","amt":3000,"cat":"sponsor","date":"2025-02-12","note":"","type":"i","sponsor":"金主大大"},
+  {"id":20250212002,"name":"飲料茶水","amt":1690,"cat":"drink","date":"2025-02-12","note":"結算至2/12","type":"e","sponsor":""},
+  {"id":20250226001,"name":"金主贊助","amt":2000,"cat":"sponsor","date":"2025-02-26","note":"溜口溜口","type":"i","sponsor":"金主大大"},
+  {"id":20250308001,"name":"下午茶飲料","amt":3000,"cat":"drink","date":"2025-03-08","note":"木木烤鴨堡 Ti 1400 + 300","type":"e","sponsor":""},
+  {"id":20250313001,"name":"木木下午茶","amt":1400,"cat":"meal","date":"2025-03-13","note":"","type":"e","sponsor":""},
+  {"id":20250313002,"name":"零食","amt":300,"cat":"food","date":"2025-03-13","note":"","type":"e","sponsor":""},
+  {"id":20250313003,"name":"下午茶 family","amt":3545,"cat":"meal","date":"2025-03-13","note":"待確認金額","type":"e","sponsor":""},
+  {"id":20250329001,"name":"金主贊助","amt":2800,"cat":"sponsor","date":"2025-03-29","note":"24+28？待確認","type":"i","sponsor":"金主大大"},
+  {"id":20250421001,"name":"結算","amt":1960,"cat":"misc","date":"2025-04-21","note":"2928-1960 結餘","type":"e","sponsor":""},
+  {"id":20250508001,"name":"飲料 all","amt":430,"cat":"drink","date":"2025-05-08","note":"","type":"e","sponsor":""},
+  {"id":20250515001,"name":"金主贊助","amt":2000,"cat":"sponsor","date":"2025-05-15","note":"","type":"i","sponsor":"金主大大"},
+  {"id":20250515002,"name":"下午茶飲料","amt":440,"cat":"drink","date":"2025-05-15","note":"","type":"e","sponsor":""},
+  {"id":20250616001,"name":"3/13 3545 family","amt":3545,"cat":"meal","date":"2025-06-16","note":"PM 2114 a → 25-133 → = 31815 TU 待確認","type":"e","sponsor":""}
+];
+
+let data = load();
+let curFilter = 'all';
+let addType = 'e', addCat = 'drink';
+let edType = 'e', edCat = 'drink', edId = null;
+
+function load(){
+  try{
+    const raw = localStorage.getItem(KEY);
+    if(raw){ const a = JSON.parse(raw); if(Array.isArray(a)) return a; }
+  }catch(e){}
+  localStorage.setItem(KEY, JSON.stringify(SEED));
+  return JSON.parse(JSON.stringify(SEED));
+}
+function save(){ localStorage.setItem(KEY, JSON.stringify(data)); }
+function fmt(n){ return '$' + Number(n).toLocaleString('en-US'); }
+function todayStr(){
+  const d = new Date();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return d.getFullYear()+'-'+m+'-'+day;
+}
+function newId(date){
+  const base = Number((date||todayStr()).replace(/-/g,''))*1000;
+  let id = base+1;
+  while(data.some(r=>r.id===id)) id++;
+  return id;
+}
+
+/* ===================== 計算總數 ===================== */
+function totals(){
+  let spon=0, used=0;
+  data.forEach(r=>{ if(r.type==='i') spon+=r.amt; else used+=r.amt; });
+  return {spon, used, bal:spon-used};
+}
+
+/* ===================== 渲染：頂部 ===================== */
+function renderTop(){
+  const t = totals();
+  document.getElementById('topSpon').textContent = fmt(t.spon);
+  document.getElementById('topUsed').textContent = fmt(t.used);
+  document.getElementById('topBal').textContent  = fmt(t.bal);
+}
+
+/* ===================== 渲染：篩選列 ===================== */
+function renderFilters(){
+  const box = document.getElementById('filters');
+  box.innerHTML = '';
+  FILTERS.forEach(key=>{
+    const meta = key==='all' ? {label:'全部'} : CATS[key];
+    const icon = ICONS[key] || ICONS.misc;
+    const active = curFilter===key;
+    const chip = document.createElement('button');
+    chip.className = 'filter-chip' + (active?' active':'');
+    if(active){
+      const c = key==='all' ? {bg:'#D4537E'} : CATS[key];
+      chip.style.background = key==='all' ? '#D4537E' : c.fg;
+    }
+    chip.innerHTML = icon + '<span>'+meta.label+'</span>';
+    chip.onclick = ()=>{ curFilter=key; renderFilters(); renderList(); };
+    box.appendChild(chip);
+  });
+}
+
+/* ===================== 渲染：明細列 ===================== */
+function recRow(r){
+  const c = CATS[r.cat] || CATS.misc;
+  const isInc = r.type==='i';
+  const sign = isInc ? '+' : '−';
+  const metaParts = [r.date];
+  if(r.note) metaParts.push(r.note);
+  const sponTag = isInc && r.sponsor ? '<div class="rec-spon-tag">'+escapeHtml(r.sponsor)+'</div>' : '';
+  const div = document.createElement('div');
+  div.className = 'rec';
+  div.innerHTML =
+    '<div class="rec-icon" style="background:'+c.bg+';color:'+c.fg+'">'+(ICONS[r.cat]||ICONS.misc)+'</div>'+
+    '<div class="rec-body">'+
+      '<div class="rec-name">'+escapeHtml(r.name)+'</div>'+
+      '<div class="rec-meta">'+escapeHtml(metaParts.join('｜'))+'</div>'+
+      sponTag+
+    '</div>'+
+    '<div class="rec-amt '+(isInc?'inc':'exp')+'">'+sign+fmt(r.amt).slice(1)+'</div>'+
+    '<div class="rec-acts">'+
+      '<button class="icon-btn" data-act="edit">'+ICONS.pencil+'</button>'+
+      '<button class="icon-btn" data-act="del">'+ICONS.trash+'</button>'+
+    '</div>';
+  div.querySelector('[data-act="edit"]').onclick = ()=>openEdit(r.id);
+  div.querySelector('[data-act="del"]').onclick = ()=>delRec(r.id);
+  return div;
+}
+function renderList(){
+  const box = document.getElementById('recList');
+  box.innerHTML = '';
+  let rows = data.slice().sort((a,b)=> b.date.localeCompare(a.date) || b.id-a.id);
+  if(curFilter!=='all') rows = rows.filter(r=> r.cat===curFilter);
+  if(rows.length===0){
+    box.innerHTML = '<div class="empty">這個分類還沒有紀錄喔～</div>';
+    return;
+  }
+  rows.forEach(r=> box.appendChild(recRow(r)));
+}
+
+/* ===================== 渲染：統計 ===================== */
+function renderStat(){
+  const t = totals();
+  document.getElementById('stSpon').textContent = fmt(t.spon);
+  document.getElementById('stUsed').textContent = fmt(t.used);
+  document.getElementById('stBal').textContent  = fmt(t.bal);
+
+  // 各分類支出
+  const sums = {};
+  EXP_CATS.forEach(k=> sums[k]=0);
+  data.forEach(r=>{ if(r.type==='e' && sums.hasOwnProperty(r.cat)) sums[r.cat]+=r.amt; });
+  const max = Math.max(1, ...Object.values(sums));
+  const chart = document.getElementById('barChart');
+  chart.innerHTML = '';
+  EXP_CATS.forEach(k=>{
+    const c = CATS[k];
+    const w = Math.round(sums[k]/max*100);
+    const row = document.createElement('div');
+    row.className = 'bar-row';
+    row.innerHTML =
+      '<div class="bar-head">'+
+        '<span class="nm" style="color:'+c.fg+'">'+ICONS[k]+c.label+'</span>'+
+        '<span class="am">'+fmt(sums[k])+'</span>'+
+      '</div>'+
+      '<div class="bar-track"><div class="bar-fill" style="width:'+w+'%;background:'+c.fg+'"></div></div>';
+    chart.appendChild(row);
+  });
+
+  // 最近五筆
+  const recent = document.getElementById('recentList');
+  recent.innerHTML = '';
+  const last5 = data.slice().sort((a,b)=> b.date.localeCompare(a.date) || b.id-a.id).slice(0,5);
+  if(last5.length===0){ recent.innerHTML='<div class="empty">還沒有紀錄</div>'; }
+  last5.forEach(r=> recent.appendChild(recRow(r)));
+}
+
+/* ===================== 記一筆 表單 ===================== */
+function renderAddCatPick(){
+  const box = document.getElementById('addCatPick');
+  box.innerHTML = '';
+  EXP_CATS.forEach(k=>{
+    const c = CATS[k];
+    const b = document.createElement('button');
+    b.type='button';
+    b.className = 'cat-opt'+(addCat===k?' active':'');
+    if(addCat===k) b.style.background=c.fg;
+    b.innerHTML = '<span style="color:'+(addCat===k?'#fff':c.fg)+'">'+ICONS[k]+'</span>'+c.label;
+    b.onclick = ()=>{ addCat=k; renderAddCatPick(); };
+    box.appendChild(b);
+  });
+}
+function setAddType(t){
+  addType = t;
+  document.querySelectorAll('#addSeg button').forEach(b=> b.classList.toggle('active', b.dataset.type===t));
+  document.getElementById('addSponWrap').style.display = t==='i' ? '' : 'none';
+  document.getElementById('addCatWrap').style.display = t==='i' ? 'none' : '';
+}
+function submitAdd(){
+  const name = document.getElementById('addName').value.trim();
+  const amt  = Math.round(Number(document.getElementById('addAmt').value));
+  const date = document.getElementById('addDate').value || todayStr();
+  const note = document.getElementById('addNote').value.trim();
+  const sponsor = document.getElementById('addSponsor').value.trim();
+  if(!name){ alert('品項要填一下喔～'); return; }
+  if(!amt || amt<=0){ alert('金額要大於 0 喔～'); return; }
+  const rec = {
+    id:newId(date), name, amt, date, note,
+    type:addType,
+    cat: addType==='i' ? 'sponsor' : addCat,
+    sponsor: addType==='i' ? (sponsor||'金主大大') : ''
+  };
+  data.push(rec);
+  save();
+  // 重置表單
+  document.getElementById('addName').value='';
+  document.getElementById('addAmt').value='';
+  document.getElementById('addNote').value='';
+  document.getElementById('addSponsor').value='';
+  document.getElementById('addDate').value=todayStr();
+  setAddType('e'); addCat='drink'; renderAddCatPick();
+  refreshAll();
+  switchTab('list');
+}
+
+/* ===================== 編輯 Modal ===================== */
+function renderEdCatPick(){
+  const box = document.getElementById('edCatPick');
+  box.innerHTML = '';
+  EXP_CATS.forEach(k=>{
+    const c = CATS[k];
+    const b = document.createElement('button');
+    b.type='button';
+    b.className = 'cat-opt'+(edCat===k?' active':'');
+    if(edCat===k) b.style.background=c.fg;
+    b.innerHTML = '<span style="color:'+(edCat===k?'#fff':c.fg)+'">'+ICONS[k]+'</span>'+c.label;
+    b.onclick = ()=>{ edCat=k; renderEdCatPick(); };
+    box.appendChild(b);
+  });
+}
+function setEdType(t){
+  edType = t;
+  document.querySelectorAll('#edSeg button').forEach(b=> b.classList.toggle('active', b.dataset.type===t));
+  document.getElementById('edSponWrap').style.display = t==='i' ? '' : 'none';
+  document.getElementById('edCatWrap').style.display = t==='i' ? 'none' : '';
+}
+function openEdit(id){
+  const r = data.find(x=>x.id===id);
+  if(!r) return;
+  edId = id;
+  setEdType(r.type);
+  edCat = (r.type==='e') ? (EXP_CATS.includes(r.cat)?r.cat:'misc') : 'drink';
+  renderEdCatPick();
+  document.getElementById('edName').value = r.name;
+  document.getElementById('edAmt').value = r.amt;
+  document.getElementById('edDate').value = r.date;
+  document.getElementById('edNote').value = r.note||'';
+  document.getElementById('edSponsor').value = r.sponsor||'';
+  document.getElementById('modalMask').classList.add('show');
+}
+function closeEdit(){ document.getElementById('modalMask').classList.remove('show'); edId=null; }
+function saveEdit(){
+  const r = data.find(x=>x.id===edId);
+  if(!r) return;
+  const name = document.getElementById('edName').value.trim();
+  const amt  = Math.round(Number(document.getElementById('edAmt').value));
+  if(!name){ alert('品項要填一下喔～'); return; }
+  if(!amt || amt<=0){ alert('金額要大於 0 喔～'); return; }
+  r.name = name;
+  r.amt = amt;
+  r.date = document.getElementById('edDate').value || r.date;
+  r.note = document.getElementById('edNote').value.trim();
+  r.type = edType;
+  if(edType==='i'){
+    r.cat = 'sponsor';
+    r.sponsor = document.getElementById('edSponsor').value.trim() || '金主大大';
+  }else{
+    r.cat = edCat;
+    r.sponsor = '';
+  }
+  save();
+  closeEdit();
+  refreshAll();
+}
+function delRec(id){
+  const r = data.find(x=>x.id===id);
+  if(!r) return;
+  if(!confirm('確定要刪除「'+r.name+'」這筆嗎？')) return;
+  data = data.filter(x=>x.id!==id);
+  save();
+  refreshAll();
+}
+
+/* ===================== 分頁切換 ===================== */
+function switchTab(tab){
+  document.querySelectorAll('.tabs button').forEach(b=> b.classList.toggle('active', b.dataset.tab===tab));
+  document.querySelectorAll('.panel').forEach(p=> p.classList.remove('active'));
+  document.getElementById('panel-'+tab).classList.add('active');
+  if(tab==='stat') renderStat();
+  window.scrollTo(0,0);
+}
+
+/* ===================== 共用 ===================== */
+function refreshAll(){ renderTop(); renderFilters(); renderList(); }
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+/* ===================== 初始化 App ===================== */
+function initApp(){
+  document.getElementById('badgeIcon').innerHTML = '<span style="width:15px;height:15px;display:inline-block">'+ICONS.food+'</span>';
+  document.querySelectorAll('.tabs button').forEach(b=> b.onclick=()=>switchTab(b.dataset.tab));
+  document.querySelectorAll('#addSeg button').forEach(b=> b.onclick=()=>setAddType(b.dataset.type));
+  document.querySelectorAll('#edSeg button').forEach(b=> b.onclick=()=>setEdType(b.dataset.type));
+  document.getElementById('addBtn').onclick = submitAdd;
+  document.getElementById('edSave').onclick = saveEdit;
+  document.getElementById('modalClose').innerHTML = ICONS.close;
+  document.getElementById('modalClose').onclick = closeEdit;
+  document.getElementById('modalMask').onclick = (e)=>{ if(e.target.id==='modalMask') closeEdit(); };
+  document.getElementById('addDate').value = todayStr();
+  renderAddCatPick();
+  setAddType('e');
+  refreshAll();
+}
+
+/* ===================== 密碼鎖 ===================== */
+const PW = '獅子座';
+const AUTH_KEY = 'cheer_fund3_auth';
+function unlock(){
+  document.getElementById('lock').style.display='none';
+  document.getElementById('app').style.display='block';
+}
+function tryPw(){
+  const v = document.getElementById('pwInput').value.trim();
+  const err = document.getElementById('pwErr');
+  if(v===PW){
+    sessionStorage.setItem(AUTH_KEY,'1');
+    unlock();
+  }else{
+    err.textContent='密碼不對喔，再想想 🦁';
+    err.classList.add('show');
+    document.getElementById('pwInput').value='';
+    document.getElementById('pwInput').focus();
+  }
+}
+function initLock(){
+  document.getElementById('envIcon').innerHTML = ICONS.envelope;
+  document.getElementById('pwBtn').onclick = tryPw;
+  document.getElementById('pwInput').addEventListener('keydown', e=>{ if(e.key==='Enter') tryPw(); });
+}
+
+/* ===================== Boot ===================== */
+initLock();
+initApp();
+if(sessionStorage.getItem(AUTH_KEY)==='1'){
+  unlock();
+}else{
+  document.getElementById('pwInput').focus();
+}
+</script>
+</body>
+</html>
