@@ -303,7 +303,7 @@
     <div class="lock-env" id="envIcon"></div>
     <h1>小金庫密碼</h1>
     <div class="lock-field">
-      <input type="password" id="pwInput" placeholder="請輸入密碼" autocomplete="off">
+      <input type="text" id="pwInput" placeholder="請輸入密碼（中文或 leo）" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go">
       <button id="pwBtn">確認</button>
     </div>
     <div class="lock-err" id="pwErr"></div>
@@ -775,16 +775,18 @@ function initApp(){
 }
 
 /* ===================== 密碼鎖 ===================== */
-const PW = '獅子座';
+// 可接受的密碼（皆忽略大小寫與所有空白）：中文 獅子座／獅子，或英文 leo／lion
+const PW_LIST = ['獅子座','獅子','leo','lion'];
 const AUTH_KEY = 'cheer_fund3_auth';
+function normPw(s){ return String(s).normalize('NFC').replace(/\s/g,'').toLowerCase(); }
 function unlock(){
   document.getElementById('lock').style.display='none';
   document.getElementById('app').style.display='block';
 }
 function tryPw(){
-  const v = document.getElementById('pwInput').value.trim();
+  const v = normPw(document.getElementById('pwInput').value);
   const err = document.getElementById('pwErr');
-  if(v===PW){
+  if(PW_LIST.some(p=>normPw(p)===v)){
     sessionStorage.setItem(AUTH_KEY,'1');
     unlock();
   }else{
