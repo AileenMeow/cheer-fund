@@ -171,6 +171,13 @@
     padding:13px 14px;
     margin-bottom:10px;
   }
+  .rec-date{
+    flex:0 0 46px;width:46px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    line-height:1.05;
+  }
+  .rec-date .md{font-size:17px;font-weight:900;color:var(--ink);letter-spacing:-0.5px;}
+  .rec-date .yr{font-size:10px;font-weight:700;color:var(--muted);margin-top:2px;}
   .rec-icon{
     width:42px;height:42px;flex:0 0 42px;
     border-radius:13px;
@@ -303,11 +310,11 @@
     <div class="lock-env" id="envIcon"></div>
     <h1>小金庫密碼</h1>
     <div class="lock-field">
-      <input type="text" id="pwInput" placeholder="請輸入密碼（中文或 leo）" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go">
+      <input type="text" id="pwInput" placeholder="請輸入密碼（食物名）" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go">
       <button id="pwBtn">確認</button>
     </div>
     <div class="lock-err" id="pwErr"></div>
-    <div class="lock-hint">提示：設計＋PM 哪個星座人數最多？</div>
+    <div class="lock-hint">提示：設計＋PM 的康樂股長是哪一個食物？</div>
   </div>
 </div>
 
@@ -315,7 +322,7 @@
 <div id="app">
   <div class="app-header">
     <h1>產品＋設計 小確幸金庫</h1>
-    <div class="sub">零食、飲料、下午茶、慶生，通通在這裡</div>
+    <div class="sub">零食、飲料、下午茶，通通在這裡</div>
     <div class="badge-role"><span id="badgeIcon"></span>康樂股長兼零食櫃姐：粉圓冰</div>
   </div>
 
@@ -347,7 +354,7 @@
       <label>金主大名</label>
       <input type="text" id="addSponsor" placeholder="哪位大大贊助？">
     </div>
-    <div class="field">
+    <div class="field" id="addNameWrap">
       <label>品項</label>
       <input type="text" id="addName" placeholder="例如：木木下午茶">
     </div>
@@ -399,7 +406,7 @@
       <label>金主大名</label>
       <input type="text" id="edSponsor" placeholder="哪位大大贊助？">
     </div>
-    <div class="field">
+    <div class="field" id="edNameWrap">
       <label>品項</label>
       <input type="text" id="edName">
     </div>
@@ -462,9 +469,9 @@ const CATS = {
   sponsor: {label:'金主贊助',bg:'#EAF3DE', fg:'#639922'},
 };
 // 支出可選類別（記一筆 / 編輯）
-const EXP_CATS = ['drink','food','meal','birthday','misc'];
+const EXP_CATS = ['drink','food','meal','misc'];
 // 明細篩選列
-const FILTERS = ['all','drink','food','meal','birthday','sponsor'];
+const FILTERS = ['all','drink','food','meal','sponsor'];
 
 /* ===================== 資料 ===================== */
 const KEY = 'cheer_fund3';
@@ -557,16 +564,21 @@ function recRow(r){
   const c = CATS[r.cat] || CATS.misc;
   const isInc = r.type==='i';
   const sign = isInc ? '+' : '−';
-  const metaParts = [r.date];
+  const dp = (r.date||'').split('-');
+  const md = dp.length===3 ? dp[1]+'/'+dp[2] : (r.date||'');
+  const yr = dp.length===3 ? dp[0] : '';
+  const metaParts = [];
   if(r.note) metaParts.push(r.note);
+  const metaHtml = metaParts.length ? '<div class="rec-meta">'+escapeHtml(metaParts.join('｜'))+'</div>' : '';
   const sponTag = isInc && r.sponsor ? '<div class="rec-spon-tag">'+escapeHtml(r.sponsor)+'</div>' : '';
   const div = document.createElement('div');
   div.className = 'rec';
   div.innerHTML =
+    '<div class="rec-date"><span class="md">'+escapeHtml(md)+'</span><span class="yr">'+escapeHtml(yr)+'</span></div>'+
     '<div class="rec-icon" style="background:'+c.bg+';color:'+c.fg+'">'+(ICONS[r.cat]||ICONS.misc)+'</div>'+
     '<div class="rec-body">'+
       '<div class="rec-name">'+escapeHtml(r.name)+'</div>'+
-      '<div class="rec-meta">'+escapeHtml(metaParts.join('｜'))+'</div>'+
+      metaHtml+
       sponTag+
     '</div>'+
     '<div class="rec-amt '+(isInc?'inc':'exp')+'">'+sign+fmt(r.amt).slice(1)+'</div>'+
@@ -646,14 +658,15 @@ function setAddType(t){
   document.querySelectorAll('#addSeg button').forEach(b=> b.classList.toggle('active', b.dataset.type===t));
   document.getElementById('addSponWrap').style.display = t==='i' ? '' : 'none';
   document.getElementById('addCatWrap').style.display = t==='i' ? 'none' : '';
+  document.getElementById('addNameWrap').style.display = t==='i' ? 'none' : '';
 }
 function submitAdd(){
-  const name = document.getElementById('addName').value.trim();
   const amt  = Math.round(Number(document.getElementById('addAmt').value));
   const date = document.getElementById('addDate').value || todayStr();
   const note = document.getElementById('addNote').value.trim();
   const sponsor = document.getElementById('addSponsor').value.trim();
-  if(!name){ alert('品項要填一下喔～'); return; }
+  const name = addType==='i' ? '金主贊助' : document.getElementById('addName').value.trim();
+  if(addType==='e' && !name){ alert('品項要填一下喔～'); return; }
   if(!amt || amt<=0){ alert('金額要大於 0 喔～'); return; }
   const rec = {
     id:newId(date), name, amt, date, note,
@@ -694,6 +707,7 @@ function setEdType(t){
   document.querySelectorAll('#edSeg button').forEach(b=> b.classList.toggle('active', b.dataset.type===t));
   document.getElementById('edSponWrap').style.display = t==='i' ? '' : 'none';
   document.getElementById('edCatWrap').style.display = t==='i' ? 'none' : '';
+  document.getElementById('edNameWrap').style.display = t==='i' ? 'none' : '';
 }
 function openEdit(id){
   const r = data.find(x=>x.id===id);
@@ -713,9 +727,9 @@ function closeEdit(){ document.getElementById('modalMask').classList.remove('sho
 function saveEdit(){
   const r = data.find(x=>x.id===edId);
   if(!r) return;
-  const name = document.getElementById('edName').value.trim();
   const amt  = Math.round(Number(document.getElementById('edAmt').value));
-  if(!name){ alert('品項要填一下喔～'); return; }
+  const name = edType==='i' ? '金主贊助' : document.getElementById('edName').value.trim();
+  if(edType==='e' && !name){ alert('品項要填一下喔～'); return; }
   if(!amt || amt<=0){ alert('金額要大於 0 喔～'); return; }
   r.name = name;
   r.amt = amt;
@@ -775,8 +789,8 @@ function initApp(){
 }
 
 /* ===================== 密碼鎖 ===================== */
-// 可接受的密碼（皆忽略大小寫與所有空白）：中文 獅子座／獅子，或英文 leo／lion
-const PW_LIST = ['獅子座','獅子','leo','lion'];
+// 可接受的密碼（皆忽略大小寫與所有空白）：粉圓冰／粉圓
+const PW_LIST = ['粉圓冰','粉圓'];
 const AUTH_KEY = 'cheer_fund3_auth';
 function normPw(s){ return String(s).normalize('NFC').replace(/\s/g,'').toLowerCase(); }
 function unlock(){
@@ -790,7 +804,7 @@ function tryPw(){
     sessionStorage.setItem(AUTH_KEY,'1');
     unlock();
   }else{
-    err.textContent='密碼不對喔，再想想 🦁';
+    err.textContent='密碼不對喔，再想想 🍧';
     err.classList.add('show');
     document.getElementById('pwInput').value='';
     document.getElementById('pwInput').focus();
