@@ -781,7 +781,7 @@ function initApp(){
   document.getElementById('edSave').onclick = saveEdit;
   document.getElementById('modalClose').innerHTML = ICONS.close;
   document.getElementById('modalClose').onclick = closeEdit;
-  document.getElementById('modalMask').onclick = (e)=>{ if(e.target.id==='modalMask') closeEdit(); };
+  // 不再「點外面就關閉」，避免填表時誤觸關掉
   document.getElementById('addDate').value = todayStr();
   renderAddCatPick();
   setAddType('e');
