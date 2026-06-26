@@ -518,7 +518,75 @@ function load(){
   localStorage.setItem(KEY, JSON.stringify(SEED));
   return JSON.parse(JSON.stringify(SEED));
 }
-function save(){ localStorage.setItem(KEY, JSON.stringify(data)); }
+function save(){ localStorage.setItem(KEY, JSON.stringify(data)); pushCloud(); }
+
+/* ===================== 雲端同步（JSONBin）===================== */
+// 設定方式見 README：到 jsonbin.io 建一個 bin（初始內容填 []），
+// 建一把只給「這個 bin」Read + Update 權限的 Access Key，把兩個值貼進來：
+const JSONBIN_ID  = '';   // ← 貼上你的 Bin ID
+const JSONBIN_KEY = '';   // ← 貼上你的 Access Key
+const JSONBIN_URL = 'https://api.jsonbin.io/v3/b/' + JSONBIN_ID;
+function cloudOn(){ return !!(JSONBIN_ID && JSONBIN_KEY); }
+const deletedIds = new Set();          // 本機這次刪掉的，避免合併時又被雲端救回來
+let syncChain = Promise.resolve();     // 序列化上傳，避免互相覆蓋
+
+function modalOpen(){ return document.getElementById('modalMask').classList.contains('show'); }
+function rerender(){
+  refreshAll();
+  if(document.getElementById('panel-stat').classList.contains('active')) renderStat();
+}
+
+async function pullCloud(){
+  if(!cloudOn() || modalOpen()) return;   // 編輯中不打擾
+  try{
+    const res = await fetch(JSONBIN_URL + '/latest', { headers:{ 'X-Access-Key': JSONBIN_KEY }, cache:'no-store' });
+    if(!res.ok) throw new Error('pull ' + res.status);
+    const j = await res.json();
+    const remote = j && j.record;
+    if(!Array.isArray(remote)) return;
+    if(remote.length===0 && data.length>0){
+      pushCloud();                        // 雲端還空的 → 把目前（正確）資料上傳當初始內容
+    }else{
+      data = remote;
+      localStorage.setItem(KEY, JSON.stringify(data));
+      rerender();
+    }
+  }catch(e){ console.warn('雲端讀取失敗，暫用本機資料', e); }
+}
+
+function pushCloud(){
+  if(!cloudOn()) return syncChain;
+  syncChain = syncChain.then(async ()=>{
+    try{
+      // 先抓雲端最新，合併後再寫回，避免蓋掉別人剛新增的資料
+      let remote = [];
+      const res = await fetch(JSONBIN_URL + '/latest', { headers:{ 'X-Access-Key': JSONBIN_KEY }, cache:'no-store' });
+      if(res.ok){ const j = await res.json(); if(Array.isArray(j.record)) remote = j.record; }
+      const byId = new Map();
+      remote.forEach(r=> byId.set(r.id, r));
+      data.forEach(r=> byId.set(r.id, r));        // 本機新增／修改覆蓋
+      deletedIds.forEach(id=> byId.delete(id));   // 本機刪除的拿掉
+      data = Array.from(byId.values());
+      localStorage.setItem(KEY, JSON.stringify(data));
+      await fetch(JSONBIN_URL, {
+        method:'PUT',
+        headers:{ 'Content-Type':'application/json', 'X-Access-Key': JSONBIN_KEY },
+        body: JSON.stringify(data)
+      });
+      rerender();
+    }catch(e){ console.warn('雲端儲存失敗，已存在本機', e); }
+  });
+  return syncChain;
+}
+
+function startSync(){
+  if(!cloudOn()) return;
+  pullCloud();
+  setInterval(pullCloud, 25000);
+  window.addEventListener('focus', pullCloud);
+  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) pullCloud(); });
+}
+
 function fmt(n){ return '$' + Number(n).toLocaleString('en-US'); }
 function todayStr(){
   const d = new Date();
@@ -760,6 +828,7 @@ function delRec(id){
   const r = data.find(x=>x.id===id);
   if(!r) return;
   if(!confirm('確定要刪除「'+r.name+'」這筆嗎？')) return;
+  deletedIds.add(id);
   data = data.filter(x=>x.id!==id);
   save();
   refreshAll();
@@ -805,6 +874,7 @@ function normPw(s){ return String(s).normalize('NFC').replace(/\s/g,'').toLowerC
 function unlock(){
   document.getElementById('lock').style.display='none';
   document.getElementById('app').style.display='block';
+  startSync();
 }
 function tryPw(){
   const v = normPw(document.getElementById('pwInput').value);
