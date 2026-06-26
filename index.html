@@ -523,10 +523,15 @@ function save(){ localStorage.setItem(KEY, JSON.stringify(data)); pushCloud(); }
 /* ===================== 雲端同步（JSONBin）===================== */
 // 設定方式見 README：到 jsonbin.io 建一個 bin（初始內容填 []），
 // 建一把只給「這個 bin」Read + Update 權限的 Access Key，把兩個值貼進來：
-const JSONBIN_ID  = '';   // ← 貼上你的 Bin ID
-const JSONBIN_KEY = '';   // ← 貼上你的 Access Key
+const JSONBIN_ID  = '6a3e0174da38895dfe00e36b';  // ← Bin ID
+const JSONBIN_KEY = '';   // ← Access Key（Public bin 可留空）
 const JSONBIN_URL = 'https://api.jsonbin.io/v3/b/' + JSONBIN_ID;
-function cloudOn(){ return !!(JSONBIN_ID && JSONBIN_KEY); }
+function cloudOn(){ return !!JSONBIN_ID; }
+function binHeaders(extra){
+  const h = Object.assign({}, extra||{});
+  if(JSONBIN_KEY) h['X-Access-Key'] = JSONBIN_KEY;   // 私人 bin 才需要金鑰
+  return h;
+}
 const deletedIds = new Set();          // 本機這次刪掉的，避免合併時又被雲端救回來
 let syncChain = Promise.resolve();     // 序列化上傳，避免互相覆蓋
 
@@ -539,7 +544,7 @@ function rerender(){
 async function pullCloud(){
   if(!cloudOn() || modalOpen()) return;   // 編輯中不打擾
   try{
-    const res = await fetch(JSONBIN_URL + '/latest', { headers:{ 'X-Access-Key': JSONBIN_KEY }, cache:'no-store' });
+    const res = await fetch(JSONBIN_URL + '/latest', { headers: binHeaders(), cache:'no-store' });
     if(!res.ok) throw new Error('pull ' + res.status);
     const j = await res.json();
     const remote = j && j.record;
@@ -559,7 +564,7 @@ function pushCloud(){
     try{
       // 先抓雲端最新，合併後再寫回，避免蓋掉別人剛新增的資料
       let remote = [];
-      const res = await fetch(JSONBIN_URL + '/latest', { headers:{ 'X-Access-Key': JSONBIN_KEY }, cache:'no-store' });
+      const res = await fetch(JSONBIN_URL + '/latest', { headers: binHeaders(), cache:'no-store' });
       if(res.ok){ const j = await res.json(); if(Array.isArray(j.record)) remote = j.record; }
       const byId = new Map();
       remote.forEach(r=> byId.set(r.id, r));
@@ -569,7 +574,7 @@ function pushCloud(){
       localStorage.setItem(KEY, JSON.stringify(data));
       await fetch(JSONBIN_URL, {
         method:'PUT',
-        headers:{ 'Content-Type':'application/json', 'X-Access-Key': JSONBIN_KEY },
+        headers: binHeaders({ 'Content-Type':'application/json' }),
         body: JSON.stringify(data)
       });
       rerender();
