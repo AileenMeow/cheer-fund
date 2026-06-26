@@ -543,9 +543,8 @@ async function pullCloud(){
     if(!res.ok) throw new Error('pull ' + res.status);
     const j = await res.json();
     const remote = j && j.record;
-    if(!Array.isArray(remote)) return;
-    if(remote.length===0 && data.length>0){
-      pushCloud();                        // 雲端還空的 → 把目前（正確）資料上傳當初始內容
+    if(!Array.isArray(remote) || remote.length===0){
+      if(data.length>0) pushCloud();      // 雲端還沒有有效資料 → 把目前（正確）資料上傳當初始內容
     }else{
       data = remote;
       localStorage.setItem(KEY, JSON.stringify(data));
